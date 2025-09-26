@@ -22,15 +22,31 @@
         <div id="authScreen" class="screen">
             <div class="auth-screen">
                 <div class="lock-icon">
-                    <i class="fas fa-lock"></i>
+                    <i class="fas fa-shield-alt"></i>
                 </div>
                 <h2>Авторизація адміністратора</h2>
-                <div class="form-group">
-                    <label for="authPassword">Пароль:</label>
-                    <input type="password" id="authPassword" placeholder="Введіть пароль адміністратора">
+                <p style="text-align: center; margin: 20px 0; color: #666;">
+                    Для доступу до адміністративних функцій необхідно пройти авторизацію через офіційний портал
+                </p>
+                <div style="text-align: center; margin: 20px 0;">
+                    <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 10px 0;">
+                        <i class="fas fa-external-link-alt" style="color: #007bff;"></i>
+                        <span style="margin-left: 8px; color: #333;">digital.bukoda.gov.ua</span>
+                    </div>
                 </div>
-                <button id="authSubmitBtn" class="btn btn-primary">Увійти</button>
-                <p id="authMessage" style="margin-top: 15px; color: #e74c3c; font-weight: 600;"></p>
+                <button id="authSubmitBtn" class="btn btn-primary">
+                    <i class="fas fa-sign-in-alt"></i> Авторизуватися через портал
+                </button>
+                <p id="authMessage" style="margin-top: 15px; color: #e74c3c; font-weight: 600; text-align: center;"></p>
+                <div style="margin-top: 20px; padding: 15px; background: #e3f2fd; border-radius: 8px; font-size: 14px; color: #1976d2;">
+                    <i class="fas fa-info-circle"></i>
+                    <strong>Інструкція:</strong>
+                    <ol style="margin: 10px 0 0 20px; text-align: left;">
+                        <li>Натисніть кнопку "Авторизуватися через портал"</li>
+                        <li>У новому вікні введіть ваші облікові дані</li>
+                        <li>Після успішного входу закрийте вікно авторизації</li>
+                    </ol>
+                </div>
             </div>
         </div>
 
@@ -141,14 +157,13 @@
         <div id="adminScreen" class="screen">
             <h2><i class="fas fa-tools"></i> Адміністрування</h2>
             
-            <div class="password-section">
-                <h3><i class="fas fa-key"></i> Зміна пароля адміністратора</h3>
-                <div class="password-form">
-                    <input type="password" id="newPassword" class="password-input" placeholder="Новий пароль">
-                    <input type="password" id="confirmPassword" class="password-input" placeholder="Підтвердіть пароль">
-                    <button id="changePasswordBtn" class="btn btn-success">Змінити</button>
-                </div>
-                <p id="passwordMessage" style="margin-top: 15px; text-align: center;"></p>
+            <div style="margin-bottom: 30px; padding: 15px; background: #e8f5e8; border-left: 4px solid #4CAF50; border-radius: 5px;">
+                <i class="fas fa-shield-alt" style="color: #4CAF50;"></i>
+                <strong>Авторизований через:</strong> digital.bukoda.gov.ua
+                <br><small style="color: #666;">Доступ до адміністративних функцій підтверджено</small>
+                <button onclick="logoutAdmin()" class="btn btn-secondary" style="float: right; margin-top: -5px; font-size: 12px; padding: 5px 10px;">
+                    <i class="fas fa-sign-out-alt"></i> Вийти
+                </button>
             </div>
 
             <div class="admin-section">

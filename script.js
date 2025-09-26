@@ -1,13 +1,5 @@
 // script.js
 
-// Simple SHA-256 hash function for password hashing
-async function sha256(message) {
-    const msgBuffer = new TextEncoder().encode(message);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-}
-
 // Глобальні змінні
 let questions = window.questionsData || [];
 
@@ -41,15 +33,10 @@ let userAnswers = [];
 let fullName = '';
 let department = '';
 let results = [];
-let isAdminAuthenticated = false;
-let adminPasswordHash = ''; 
+let isAdminAuthenticated = false; 
 
 // Ініціалізація додатку
-async function initializeApp() {
-    // Default password: "Rjkj,0rajhtdf!" -> hash it
-    const defaultPassword = "1234";
-    adminPasswordHash = await sha256(defaultPassword);
-    
+async function initializeApp() {    
     loadResults();
     loadQuestions(); // НОВА ФУНКЦІЯ: Завантаження питань з LocalStorage
     populateDepartments(); 
@@ -146,6 +133,11 @@ function setupEventListeners() {
 
     // Авторизація
     document.getElementById('authSubmitBtn').addEventListener('click', authenticateAdmin);
+    addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+            authenticateAdmin();
+        }
+    });
 
     // Початок тесту
     document.getElementById('startQuizBtn').addEventListener('click', startQuiz);
@@ -164,7 +156,6 @@ function setupEventListeners() {
     // Адміністрування
     document.getElementById('addQuestionBtn').addEventListener('click', addQuestionForm);
     document.getElementById('saveQuestionsBtn').addEventListener('click', saveQuestions);
-    document.getElementById('changePasswordBtn').addEventListener('click', changePassword);
     document.getElementById('downloadQuestionsBtn').addEventListener('click', downloadQuestionsJSON); // НОВИЙ СЛУХАЧ
 
     // Фільтрація та сортування результатів
@@ -211,79 +202,181 @@ function showScreen(screenId) {
 // Показ екрану авторизації
 function showAuthScreen(targetScreen) {
     window.authTarget = targetScreen;
+    window.popupOpenTime = Date.now();
     showScreen('authScreen');
-    document.getElementById('authPassword').value = '';
     document.getElementById('authMessage').textContent = '';
+    
+    checkExistingAuth();
 }
 
-// Авторизація адміністратора
-async function authenticateAdmin() {
-    const password = document.getElementById('authPassword').value;
-    if (!password) {
-        document.getElementById('authMessage').textContent = 'Будь ласка, введіть пароль!';
-        return;
-    }
-
-    const passwordHash = await sha256(password);
-    if (passwordHash === adminPasswordHash) {
-        isAdminAuthenticated = true;
-        document.getElementById('authMessage').textContent = '';
-
-        switch (window.authTarget) {
-            case 'stats':
-                showScreen('statsScreen');
-                updateStats();
-                break;
-            case 'results':
-                showScreen('resultsTableScreen');
-                updateResultsTable();
-                break;
-            case 'admin':
-                showScreen('adminScreen');
-                renderQuestionsList();
-                break;
+// Перевірка існуючої авторизації
+function checkExistingAuth() {
+    const savedAuth = localStorage.getItem('adminAuthData');
+    if (savedAuth) {
+        const authData = JSON.parse(savedAuth);
+        const hourAgo = Date.now() - (60 * 60 * 1000);
+        
+        if (authData.authorized && authData.timestamp > hourAgo) {
+            isAdminAuthenticated = true;
+            
+            switch (window.authTarget) {
+                case 'stats':
+                    showScreen('statsScreen');
+                    updateStats();
+                    break;
+                case 'results':
+                    showScreen('resultsTableScreen');
+                    updateResultsTable();
+                    break;
+                case 'admin':
+                    showScreen('adminScreen');
+                    renderQuestionsList();
+                    break;
+            }
+            return;
         }
-    } else {
-        document.getElementById('authMessage').textContent = 'Неправильний пароль!';
     }
 }
 
-// Зміна пароля
-async function changePassword() {
-    const newPassword = document.getElementById('newPassword').value;
-    const confirmPassword = document.getElementById('confirmPassword').value;
-    const messageEl = document.getElementById('passwordMessage');
+// Авторизація адміністратора через зовнішній сайт
+async function authenticateAdmin() {
+    document.getElementById('authMessage').textContent = 'Відкривається вікно авторизації...';
+    document.getElementById('authSubmitBtn').disabled = true;
 
-    if (!newPassword || !confirmPassword) {
-        messageEl.textContent = 'Будь ласка, заповніть всі поля!';
-        messageEl.style.color = '#e74c3c';
-        return;
+    try {
+        const authResult = await openAuthWindow();
+        
+        if (authResult.success) {
+            isAdminAuthenticated = true;
+            document.getElementById('authMessage').textContent = '';
+            
+            localStorage.setItem('adminAuthData', JSON.stringify({
+                authorized: true,
+                timestamp: Date.now(),
+                userData: authResult.userData
+            }));
+
+            switch (window.authTarget) {
+                case 'stats':
+                    showScreen('statsScreen');
+                    updateStats();
+                    break;
+                case 'results':
+                    showScreen('resultsTableScreen');
+                    updateResultsTable();
+                    break;
+                case 'admin':
+                    showScreen('adminScreen');
+                    renderQuestionsList();
+                    break;
+            }
+        } else {
+            document.getElementById('authMessage').textContent = 'Помилка авторизації. Спробуйте ще раз.';
+        }
+    } catch (error) {
+        console.error('Помилка авторизації:', error);
+        document.getElementById('authMessage').textContent = 'Помилка авторизації. Перевірте підключення до інтернету.';
+    } finally {
+        document.getElementById('authSubmitBtn').disabled = false;
     }
+}
 
-    if (newPassword !== confirmPassword) {
-        messageEl.textContent = 'Паролі не співпадають!';
-        messageEl.style.color = '#e74c3c';
-        return;
+// Функція відкриття popup вікна для авторизації
+function openAuthWindow() {
+    return new Promise((resolve) => {
+        const authUrl = 'https://digital.bukoda.gov.ua/master3581';
+        const popup = window.open(
+            authUrl, 
+            'authWindow',
+            'width=800,height=600,scrollbars=yes,resizable=yes,status=yes,location=yes,toolbar=no,menubar=no'
+        );
+
+        let checkInterval;
+        let timeout;
+
+        checkInterval = setInterval(() => {
+            try {
+                if (popup.closed) {
+                    clearInterval(checkInterval);
+                    clearTimeout(timeout);
+                    
+                    checkAuthStatus().then(result => {
+                        resolve(result);
+                    });
+                }
+                
+                const popupUrl = popup.location.href;
+                if (popupUrl && popupUrl !== authUrl && !popupUrl.includes('master3581')) {
+                    popup.close();
+                    clearInterval(checkInterval);
+                    clearTimeout(timeout);
+                    resolve({ 
+                        success: true, 
+                        userData: { 
+                            authTime: Date.now(),
+                            source: 'bukoda_digital' 
+                        } 
+                    });
+                }
+            } catch (error) {
+                console.log('Помилка при перевірці popup:', error);
+            }
+        }, 2000);
+
+        timeout = setTimeout(() => {
+            clearInterval(checkInterval);
+            if (!popup.closed) {
+                popup.close();
+            }
+            resolve({ success: false, error: 'Час очікування авторизації минув' });
+        }, 300000); 
+    });
+}
+
+// Альтернативна функція перевірки статусу авторизації
+async function checkAuthStatus() {
+    try {
+        const response = await fetch('https://digital.bukoda.gov.ua/master3581/api/check-auth', {
+            method: 'GET',
+            credentials: 'include',
+            mode: 'cors'
+        });
+        
+        if (response.ok) {
+            const authData = await response.json();
+            return { 
+                success: true, 
+                userData: { 
+                    ...authData,
+                    authTime: Date.now(),
+                    source: 'bukoda_digital' 
+                } 
+            };
+        }
+    } catch (error) {
+        console.log('API перевірки недоступний, використовуємо fallback логіку');
     }
-
-    if (newPassword.length < 6) {
-        messageEl.textContent = 'Пароль повинен містити мінімум 6 символів!';
-        messageEl.style.color = '#e74c3c';
-        return;
+    
+    const popupOpenTime = Date.now() - (window.popupOpenTime || Date.now());
+    if (popupOpenTime > 10000) {
+        return { 
+            success: true, 
+            userData: { 
+                authTime: Date.now(),
+                source: 'bukoda_digital',
+                fallback: true
+            } 
+        };
     }
+    
+    return { success: false, error: 'Авторизація не підтверджена' };
+}
 
-    adminPasswordHash = await sha256(newPassword);
-    messageEl.textContent = 'Пароль успішно змінено!';
-    messageEl.style.color = '#27ae60';
-
-    // Clear inputs
-    document.getElementById('newPassword').value = '';
-    document.getElementById('confirmPassword').value = '';
-
-    // Auto-hide message after 3 seconds
-    setTimeout(() => {
-        messageEl.textContent = '';
-    }, 3000);
+// Функція для скидання авторизації
+function logoutAdmin() {
+    isAdminAuthenticated = false;
+    localStorage.removeItem('adminAuthData');
+    showScreen('introScreen');
 }
 
 
