@@ -33,16 +33,48 @@ let userAnswers = [];
 let fullName = '';
 let department = '';
 let results = [];
-let isAdminAuthenticated = false; 
+let isAdminAuthenticated = false;
+let testSettings = {
+    isActive: false,
+    startDate: null,
+    endDate: null,
+    title: 'Тестування з кібербезпеки'
+}; 
 
 // Ініціалізація додатку
 async function initializeApp() {    
     loadResults();
     loadQuestions(); // НОВА ФУНКЦІЯ: Завантаження питань з LocalStorage
+    loadTestSettings(); 
     populateDepartments(); 
     setupEventListeners();
+    checkTestAvailability(); 
     showScreen('introScreen');
     document.getElementById('totalQuestions').textContent = questions.length;
+    startTimer(); 
+    
+    checkInitialAuth();
+    
+    setTimeout(() => {
+        updateTestSettingsDisplay();
+    }, 100);
+}
+
+//Перевірка авторизації при ініціалізації
+function checkInitialAuth() {
+    try {
+        const savedAuth = localStorage.getItem('adminAuthData');
+        if (savedAuth) {
+            const authData = JSON.parse(savedAuth);
+            const hourAgo = Date.now() - (60 * 60 * 1000);
+            
+            if (authData.authorized && authData.timestamp > hourAgo) {
+                isAdminAuthenticated = true;
+            }
+        }
+    } catch (e) {
+        console.log('Помилка перевірки збереженої авторизації:', e);
+    }
 }
 
 // НОВА ФУНКЦІЯ: Завантаження питань (пріоритет LocalStorage)
@@ -90,6 +122,145 @@ function downloadQuestionsJSON() {
     alert('Файл questions.json успішно сформовано для завантаження! Збережіть його та замініть оригінальний файл для постійного збереження змін.');
 }
 
+// Завантаження налаштувань тесту
+function loadTestSettings() {
+    try {
+        const savedSettings = localStorage.getItem('testSettings');
+        if (savedSettings) {
+            testSettings = { ...testSettings, ...JSON.parse(savedSettings) };
+        }
+    } catch (e) {
+        console.error('Помилка завантаження налаштувань тесту:', e);
+    }
+}
+
+// Збереження налаштувань тесту
+function saveTestSettings() {
+    try {
+        localStorage.setItem('testSettings', JSON.stringify(testSettings));
+    } catch (e) {
+        console.error('Помилка збереження налаштувань тесту:', e);
+    }
+}
+
+// Перевірка доступності тесту
+function checkTestAvailability() {
+    const now = new Date();
+    let isAvailable = testSettings.isActive;
+    
+    if (testSettings.startDate) {
+        const startDate = new Date(testSettings.startDate);
+        if (now < startDate) {
+            isAvailable = false;
+        }
+    }
+    
+    if (testSettings.endDate) {
+        const endDate = new Date(testSettings.endDate);
+        if (now > endDate) {
+            isAvailable = false;
+        }
+    }
+    
+    const startBtn = document.getElementById('startQuizBtn');
+    const messageEl = document.getElementById('testAvailabilityMessage');
+    
+    if (!isAvailable) {
+        startBtn.disabled = true;
+        startBtn.textContent = 'Тест недоступний';
+        startBtn.style.opacity = '0.6';
+        
+        let message = '';
+        if (!testSettings.isActive) {
+            message = 'Тест тимчасово вимкнений адміністратором.';
+        } else if (testSettings.startDate && now < new Date(testSettings.startDate)) {
+            message = `Тест буде доступний з ${formatDateTime(testSettings.startDate)}`;
+        } else if (testSettings.endDate && now > new Date(testSettings.endDate)) {
+            message = `Тест завершився ${formatDateTime(testSettings.endDate)}`;
+        }
+        
+        if (messageEl) {
+            messageEl.textContent = message;
+            messageEl.style.display = 'block';
+        }
+        
+        const timerEl = document.getElementById('testTimer');
+        if (timerEl && !testSettings.isActive) {
+            timerEl.style.display = 'none';
+        }
+    } else {
+        startBtn.disabled = false;
+        startBtn.textContent = 'Почати тестування';
+        startBtn.style.opacity = '1';
+        
+        if (messageEl) {
+            messageEl.style.display = 'none';
+        }
+    }
+}
+
+// Форматування дати та часу
+function formatDateTime(dateString) {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toLocaleString('uk-UA', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+// Таймер зворотного відліку
+function startTimer() {
+    const timerEl = document.getElementById('testTimer');
+    if (!timerEl) return;
+    
+    function updateTimer() {
+        if (!testSettings.isActive) {
+            timerEl.style.display = 'none';
+            return;
+        }
+        
+        const now = new Date();
+        let targetDate = null;
+        let timerText = '';
+        
+        if (testSettings.startDate && now < new Date(testSettings.startDate)) {
+            targetDate = new Date(testSettings.startDate);
+            timerText = 'До початку: ';
+        } else if (testSettings.endDate && now < new Date(testSettings.endDate)) {
+            targetDate = new Date(testSettings.endDate);
+            timerText = 'До завершення: ';
+        }
+        
+        if (targetDate) {
+            const timeDiff = targetDate - now;
+            
+            if (timeDiff > 0) {
+                const days = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+                const hours = Math.floor((timeDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((timeDiff % (1000 * 60)) / 1000);
+                
+                timerEl.innerHTML = `
+                    <i class="fas fa-clock"></i> ${timerText}
+                    <span class="timer-value">${days}д ${hours}г ${minutes}хв ${seconds}с</span>
+                `;
+                timerEl.style.display = 'block';
+            } else {
+                checkTestAvailability();
+                timerEl.style.display = 'none';
+            }
+        } else {
+            timerEl.style.display = 'none';
+        }
+    }
+    
+    updateTimer();
+    setInterval(updateTimer, 1000);
+}
 
 // Функція для заповнення випадаючого списку підрозділів
 function populateDepartments() {
@@ -107,12 +278,8 @@ function setupEventListeners() {
     // Навігація
     document.getElementById('startBtn').addEventListener('click', () => showScreen('introScreen'));
     document.getElementById('statsBtn').addEventListener('click', () => {
-        if (isAdminAuthenticated) {
-            showScreen('statsScreen');
-            updateStats();
-        } else {
-            showAuthScreen('stats');
-        }
+        showScreen('statsScreen');
+        updateStats();
     });
     document.getElementById('resultsBtn').addEventListener('click', () => {
         if (isAdminAuthenticated) {
@@ -126,6 +293,9 @@ function setupEventListeners() {
         if (isAdminAuthenticated) {
             showScreen('adminScreen');
             renderQuestionsList();
+            setTimeout(() => {
+                updateTestSettingsDisplay();
+            }, 50);
         } else {
             showAuthScreen('admin');
         }
@@ -134,6 +304,7 @@ function setupEventListeners() {
     // Авторизація
     document.getElementById('authSubmitBtn').addEventListener('click', authenticateAdmin);
     addEventListener('keydown', (event) => {
+        event.preventDefault();
         if (event.key === 'Enter') {
             authenticateAdmin();
         }
@@ -157,6 +328,9 @@ function setupEventListeners() {
     document.getElementById('addQuestionBtn').addEventListener('click', addQuestionForm);
     document.getElementById('saveQuestionsBtn').addEventListener('click', saveQuestions);
     document.getElementById('downloadQuestionsBtn').addEventListener('click', downloadQuestionsJSON); // НОВИЙ СЛУХАЧ
+    
+    // Налаштування тесту
+    document.getElementById('toggleTestBtn').addEventListener('click', toggleTestActivity);
 
     // Фільтрація та сортування результатів
     document.getElementById('filterSurname').addEventListener('input', filterResults);
@@ -231,6 +405,9 @@ function checkExistingAuth() {
                 case 'admin':
                     showScreen('adminScreen');
                     renderQuestionsList();
+                    setTimeout(() => {
+                        updateTestSettingsDisplay();
+                    }, 50);
                     break;
             }
             return;
@@ -268,6 +445,9 @@ async function authenticateAdmin() {
                 case 'admin':
                     showScreen('adminScreen');
                     renderQuestionsList();
+                    setTimeout(() => {
+                        updateTestSettingsDisplay();
+                    }, 50);
                     break;
             }
         } else {
@@ -382,6 +562,34 @@ function logoutAdmin() {
 
 // Початок тесту
 function startQuiz() {
+    const now = new Date();
+    let isAvailable = testSettings.isActive;
+    
+    if (testSettings.startDate) {
+        const startDate = new Date(testSettings.startDate);
+        if (now < startDate) {
+            isAvailable = false;
+        }
+    }
+    
+    if (testSettings.endDate) {
+        const endDate = new Date(testSettings.endDate);
+        if (now > endDate) {
+            isAvailable = false;
+        }
+    }
+    
+    if (!isAvailable) {
+        if (!testSettings.isActive) {
+            alert('Тест наразі деактивований адміністратором.');
+        } else if (testSettings.startDate && now < new Date(testSettings.startDate)) {
+            alert(`Тест буде доступний з ${formatDateTime(testSettings.startDate)}`);
+        } else if (testSettings.endDate && now > new Date(testSettings.endDate)) {
+            alert(`Тест завершився ${formatDateTime(testSettings.endDate)}`);
+        }
+        return;
+    }
+
     fullName = document.getElementById('fullName').value.trim();
     department = document.getElementById('department').value; 
     
@@ -735,6 +943,128 @@ function saveQuestions() {
         alert('Питання успішно збережено в браузері! Щоб зберегти їх назавжди, скористайтеся кнопкою "Завантажити Questions.json".');
         // Оновлюємо список
         renderQuestionsList();
+    }
+}
+
+// Управління налаштуваннями тесту
+function toggleTestActivity() {
+    if (!testSettings.isActive) {
+        const title = document.getElementById('testTitle').value.trim();
+        const startDate = document.getElementById('testStartDate').value;
+        const endDate = document.getElementById('testEndDate').value;
+        
+        if (!title) {
+            alert('Будь ласка, введіть назву тесту!');
+            return;
+        }
+        
+        if (!startDate) {
+            alert('Будь ласка, вкажіть дату початку тесту!');
+            return;
+        }
+        
+        if (!endDate) {
+            alert('Будь ласка, вкажіть дату завершення тесту!');
+            return;
+        }
+        
+        if (new Date(startDate) >= new Date(endDate)) {
+            alert('Дата початку повинна бути раніше дати завершення!');
+            return;
+        }
+        
+        const now = new Date();
+        if (new Date(startDate) < now) {
+            alert('Дата початку повинна бути в майбутньому!');
+            return;
+        }
+        
+        testSettings = {
+            title: title,
+            isActive: true,
+            startDate: startDate,
+            endDate: endDate
+        };
+        
+        saveTestSettings();
+        checkTestAvailability();
+        updateTestSettingsDisplay();
+        
+        alert('Тест успішно активовано! Користувачі зможуть проходити тест згідно з налаштованим розкладом.');
+    } else {
+        if (confirm('Ви впевнені, що хочете деактивувати тест? Це також очистить всі налаштування.')) {
+            testSettings = {
+                isActive: false,
+                startDate: null,
+                endDate: null,
+                title: 'Тестування з кібербезпеки'
+            };
+            
+            saveTestSettings();
+            checkTestAvailability();
+            updateTestSettingsDisplay();
+            
+            alert('Тест деактивовано і налаштування очищено.');
+        }
+    }
+}
+
+function updateTestSettingsDisplay() {
+    const adminScreen = document.getElementById('adminScreen');
+    if (!adminScreen) {
+        return; 
+    }
+    
+    const titleEl = document.getElementById('testTitle');
+    const activeEl = document.getElementById('testActive');
+    const startDateEl = document.getElementById('testStartDate');
+    const endDateEl = document.getElementById('testEndDate');
+    const statusEl = document.getElementById('testStatus');
+    const toggleBtn = document.getElementById('toggleTestBtn');
+    
+    if (titleEl) titleEl.value = testSettings.title || '';
+    if (startDateEl) startDateEl.value = testSettings.startDate || '';
+    if (endDateEl) endDateEl.value = testSettings.endDate || '';
+    
+    if (activeEl) {
+        activeEl.style.display = 'none';
+        activeEl.parentElement.style.display = 'none';
+    }
+    
+    if (statusEl) {
+        const now = new Date();
+        let status = 'Неактивний';
+        let statusClass = 'status-inactive';
+        
+        if (testSettings.isActive) {
+            if (testSettings.startDate && now < new Date(testSettings.startDate)) {
+                status = 'Очікування початку';
+                statusClass = 'status-pending';
+            } else if (testSettings.endDate && now > new Date(testSettings.endDate)) {
+                status = 'Завершений';
+                statusClass = 'status-expired';
+            } else {
+                status = 'Активний';
+                statusClass = 'status-active';
+            }
+        }
+        
+        statusEl.textContent = status;
+        statusEl.className = `test-status ${statusClass}`;
+    }
+    
+    if (toggleBtn) {
+        if (testSettings.isActive) {
+            toggleBtn.innerHTML = '<i class="fas fa-pause"></i> Деактивувати тест';
+            toggleBtn.className = 'btn btn-danger';
+            toggleBtn.disabled = false;
+            toggleBtn.style.opacity = '1';
+        } else {
+            toggleBtn.innerHTML = '<i class="fas fa-play"></i> Активувати тест';
+            toggleBtn.className = 'btn btn-success';
+            toggleBtn.disabled = false;
+            toggleBtn.style.opacity = '1';
+        }
     }
 }
 

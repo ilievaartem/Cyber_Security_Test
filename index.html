@@ -45,12 +45,15 @@
                         <li>Натисніть кнопку "Авторизуватися через портал"</li>
                         <li>У новому вікні введіть ваші облікові дані</li>
                         <li>Після успішного входу закрийте вікно авторизації</li>
+                        <li>Якщо ви уже увійшли в систему і не можете авторизуватися, спробуйте вийти з облікового запису та увійти знову</li>
                     </ol>
                 </div>
             </div>
         </div>
 
         <div id="introScreen" class="screen active">
+            <div id="testTimer" class="test-timer" style="display: none;"></div>
+            
             <div class="form-group">
                 <label for="fullName">ПІБ працівника:</label>
                 <input type="text" id="fullName" placeholder="Введіть ПІБ" required>
@@ -64,6 +67,7 @@
             </div>
             
             <button id="startQuizBtn" class="btn btn-primary">Почати тестування</button>
+            <div id="testAvailabilityMessage" class="test-message" style="display: none;"></div>
         </div>
 
         <div id="quizScreen" class="screen">
@@ -164,6 +168,47 @@
                 <button onclick="logoutAdmin()" class="btn btn-secondary" style="float: right; margin-top: -5px; font-size: 12px; padding: 5px 10px;">
                     <i class="fas fa-sign-out-alt"></i> Вийти
                 </button>
+            </div>
+
+            <!-- НОВА СЕКЦІЯ: Налаштування тесту -->
+            <div class="admin-section">
+                <div class="admin-header">
+                    <h3><i class="fas fa-cog"></i> Налаштування тесту</h3>
+                    <span id="testStatus" class="test-status status-active">Активний</span>
+                </div>
+                
+                <div class="test-settings-form">
+                    <div class="form-row">
+                        <div class="form-col">
+                            <label for="testTitle">Назва тесту: <span style="color: red;">*</span></label>
+                            <input type="text" id="testTitle" placeholder="Тестування з кібербезпеки" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;">
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-col">
+                            <label for="testStartDate">Дата та час початку: <span style="color: red;">*</span></label>
+                            <input type="datetime-local" id="testStartDate" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;">
+                            <small style="color: #666;">Обов'язково для активації тесту</small>
+                        </div>
+                        <div class="form-col">
+                            <label for="testEndDate">Дата та час завершення: <span style="color: red;">*</span></label>
+                            <input type="datetime-local" id="testEndDate" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;">
+                            <small style="color: #666;">Обов'язково для активації тесту</small>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-top: 15px; padding: 10px; background: #fff3cd; border-radius: 8px; font-size: 14px; color: #856404;">
+                        <i class="fas fa-info-circle"></i>
+                        <strong>Увага:</strong> Заповніть всі поля і натисніть "Активувати тест" для збереження налаштувань та активації.
+                    </div>
+                    
+                    <div style="margin-top: 15px; text-align: center;">
+                        <button id="toggleTestBtn" class="btn btn-success">
+                            <i class="fas fa-play"></i> Активувати тест
+                        </button>
+                    </div>
+                </div>
             </div>
 
             <div class="admin-section">
