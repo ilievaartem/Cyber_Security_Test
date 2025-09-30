@@ -187,20 +187,20 @@
                     
                     <div class="form-row">
                         <div class="form-col">
-                            <label for="testStartDate">Дата та час початку: <span style="color: red;">*</span></label>
-                            <input type="datetime-local" id="testStartDate" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;">
+                            <label for="testStartDate">Дата початку: <span style="color: red;">*</span></label>
+                            <input type="date" id="testStartDate" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;">
                             <small style="color: #666;">Обов'язково для активації тесту</small>
                         </div>
                         <div class="form-col">
-                            <label for="testEndDate">Дата та час завершення: <span style="color: red;">*</span></label>
-                            <input type="datetime-local" id="testEndDate" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;">
+                            <label for="testEndDate">Дата завершення: <span style="color: red;">*</span></label>
+                            <input type="date" id="testEndDate" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;">
                             <small style="color: #666;">Обов'язково для активації тесту</small>
                         </div>
                     </div>
                     
                     <div style="margin-top: 15px; padding: 10px; background: #fff3cd; border-radius: 8px; font-size: 14px; color: #856404;">
                         <i class="fas fa-info-circle"></i>
-                        <strong>Увага:</strong> Заповніть всі поля і натисніть "Активувати тест" для збереження налаштувань та активації.
+                        <strong>Увага:</strong> <span id="testInfoMessage">Заповніть всі поля і натисніть "Активувати тест" для збереження налаштувань. Тест буде активний протягом вибраної дати.</span>
                     </div>
                     
                     <div style="margin-top: 15px; text-align: center;">

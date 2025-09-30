@@ -145,19 +145,22 @@ function saveTestSettings() {
 
 // Перевірка доступності тесту
 function checkTestAvailability() {
-    const now = new Date();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); 
     let isAvailable = testSettings.isActive;
     
     if (testSettings.startDate) {
         const startDate = new Date(testSettings.startDate);
-        if (now < startDate) {
+        startDate.setHours(0, 0, 0, 0);
+        if (today < startDate) {
             isAvailable = false;
         }
     }
     
     if (testSettings.endDate) {
         const endDate = new Date(testSettings.endDate);
-        if (now > endDate) {
+        endDate.setHours(23, 59, 59, 999); 
+        if (today > endDate) {
             isAvailable = false;
         }
     }
@@ -173,9 +176,9 @@ function checkTestAvailability() {
         let message = '';
         if (!testSettings.isActive) {
             message = 'Тест тимчасово вимкнений адміністратором.';
-        } else if (testSettings.startDate && now < new Date(testSettings.startDate)) {
+        } else if (testSettings.startDate && today < new Date(testSettings.startDate)) {
             message = `Тест буде доступний з ${formatDateTime(testSettings.startDate)}`;
-        } else if (testSettings.endDate && now > new Date(testSettings.endDate)) {
+        } else if (testSettings.endDate && today > new Date(testSettings.endDate)) {
             message = `Тест завершився ${formatDateTime(testSettings.endDate)}`;
         }
         
@@ -199,16 +202,14 @@ function checkTestAvailability() {
     }
 }
 
-// Форматування дати та часу
+// Форматування дати
 function formatDateTime(dateString) {
     if (!dateString) return '';
     const date = new Date(dateString);
-    return date.toLocaleString('uk-UA', {
+    return date.toLocaleDateString('uk-UA', {
         day: '2-digit',
         month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
+        year: 'numeric'
     });
 }
 
@@ -227,12 +228,22 @@ function startTimer() {
         let targetDate = null;
         let timerText = '';
         
-        if (testSettings.startDate && now < new Date(testSettings.startDate)) {
-            targetDate = new Date(testSettings.startDate);
-            timerText = 'До початку: ';
-        } else if (testSettings.endDate && now < new Date(testSettings.endDate)) {
-            targetDate = new Date(testSettings.endDate);
-            timerText = 'До завершення: ';
+        if (testSettings.startDate) {
+            const startDate = new Date(testSettings.startDate);
+            startDate.setHours(0, 0, 0, 0); 
+            if (now < startDate) {
+                targetDate = startDate;
+                timerText = 'До початку: ';
+            }
+        }
+        
+        if (!targetDate && testSettings.endDate) {
+            const endDate = new Date(testSettings.endDate);
+            endDate.setHours(23, 59, 59, 999);
+            if (now < endDate) {
+                targetDate = endDate;
+                timerText = 'До завершення: ';
+            }
         }
         
         if (targetDate) {
@@ -563,18 +574,21 @@ function logoutAdmin() {
 // Початок тесту
 function startQuiz() {
     const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     let isAvailable = testSettings.isActive;
     
     if (testSettings.startDate) {
         const startDate = new Date(testSettings.startDate);
-        if (now < startDate) {
+        const startDay = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+        if (today < startDay) {
             isAvailable = false;
         }
     }
     
     if (testSettings.endDate) {
         const endDate = new Date(testSettings.endDate);
-        if (now > endDate) {
+        const endDay = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
+        if (today > endDay) {
             isAvailable = false;
         }
     }
@@ -582,9 +596,9 @@ function startQuiz() {
     if (!isAvailable) {
         if (!testSettings.isActive) {
             alert('Тест наразі деактивований адміністратором.');
-        } else if (testSettings.startDate && now < new Date(testSettings.startDate)) {
+        } else if (testSettings.startDate && today < new Date(testSettings.startDate)) {
             alert(`Тест буде доступний з ${formatDateTime(testSettings.startDate)}`);
-        } else if (testSettings.endDate && now > new Date(testSettings.endDate)) {
+        } else if (testSettings.endDate && today > new Date(testSettings.endDate)) {
             alert(`Тест завершився ${formatDateTime(testSettings.endDate)}`);
         }
         return;
@@ -968,14 +982,18 @@ function toggleTestActivity() {
             return;
         }
         
-        if (new Date(startDate) >= new Date(endDate)) {
-            alert('Дата початку повинна бути раніше дати завершення!');
+        if (new Date(startDate) > new Date(endDate)) {
+            alert('Дата початку не може бути пізніше дати завершення!');
             return;
         }
         
-        const now = new Date();
-        if (new Date(startDate) < now) {
-            alert('Дата початку повинна бути в майбутньому!');
+        // Перевірка, що дата початку не в минулому (дозволяємо сьогоднішню дату)
+        const today = new Date();
+        today.setHours(0, 0, 0, 0); 
+        const selectedStartDate = new Date(startDate);
+        
+        if (selectedStartDate < today) {
+            alert('Дата початку не може бути в минулому!');
             return;
         }
         
@@ -1021,10 +1039,57 @@ function updateTestSettingsDisplay() {
     const endDateEl = document.getElementById('testEndDate');
     const statusEl = document.getElementById('testStatus');
     const toggleBtn = document.getElementById('toggleTestBtn');
+    const infoMessageEl = document.getElementById('testInfoMessage');
     
     if (titleEl) titleEl.value = testSettings.title || '';
     if (startDateEl) startDateEl.value = testSettings.startDate || '';
     if (endDateEl) endDateEl.value = testSettings.endDate || '';
+    
+    if (titleEl) titleEl.disabled = testSettings.isActive;
+    if (startDateEl) startDateEl.disabled = testSettings.isActive;
+    if (endDateEl) endDateEl.disabled = testSettings.isActive;
+    
+    if (infoMessageEl) {
+        if (testSettings.isActive) {
+            infoMessageEl.textContent = 'Поля заблоковані під час активного тесту. Для редагування спочатку деактивуйте тест.';
+        } else {
+            infoMessageEl.textContent = 'Заповніть всі поля і натисніть "Активувати тест" для збереження налаштувань. Тест буде активний протягом вибраної дати.';
+        }
+    }
+    
+    if (testSettings.isActive) {
+        if (titleEl) {
+            titleEl.style.backgroundColor = '#f5f5f5';
+            titleEl.style.color = '#666';
+            titleEl.style.cursor = 'not-allowed';
+        }
+        if (startDateEl) {
+            startDateEl.style.backgroundColor = '#f5f5f5';
+            startDateEl.style.color = '#666';
+            startDateEl.style.cursor = 'not-allowed';
+        }
+        if (endDateEl) {
+            endDateEl.style.backgroundColor = '#f5f5f5';
+            endDateEl.style.color = '#666';
+            endDateEl.style.cursor = 'not-allowed';
+        }
+    } else {
+        if (titleEl) {
+            titleEl.style.backgroundColor = '';
+            titleEl.style.color = '';
+            titleEl.style.cursor = '';
+        }
+        if (startDateEl) {
+            startDateEl.style.backgroundColor = '';
+            startDateEl.style.color = '';
+            startDateEl.style.cursor = '';
+        }
+        if (endDateEl) {
+            endDateEl.style.backgroundColor = '';
+            endDateEl.style.color = '';
+            endDateEl.style.cursor = '';
+        }
+    }
     
     if (activeEl) {
         activeEl.style.display = 'none';
@@ -1033,14 +1098,28 @@ function updateTestSettingsDisplay() {
     
     if (statusEl) {
         const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         let status = 'Неактивний';
         let statusClass = 'status-inactive';
         
         if (testSettings.isActive) {
-            if (testSettings.startDate && now < new Date(testSettings.startDate)) {
+            let testStartDay = null;
+            let testEndDay = null;
+            
+            if (testSettings.startDate) {
+                const startDate = new Date(testSettings.startDate);
+                testStartDay = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+            }
+            
+            if (testSettings.endDate) {
+                const endDate = new Date(testSettings.endDate);
+                testEndDay = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
+            }
+            
+            if (testStartDay && today < testStartDay) {
                 status = 'Очікування початку';
                 statusClass = 'status-pending';
-            } else if (testSettings.endDate && now > new Date(testSettings.endDate)) {
+            } else if (testEndDay && today > testEndDay) {
                 status = 'Завершений';
                 statusClass = 'status-expired';
             } else {
